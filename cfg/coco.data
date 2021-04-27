@@ -1,4 +1,4 @@
-classes= 80
+classes= 1
 train  = /home/pjreddie/data/coco/trainvalno5k.txt
 valid  = coco_testdev
 #valid = data/coco_val_5k.list
