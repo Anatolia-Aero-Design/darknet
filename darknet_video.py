@@ -54,10 +54,16 @@ def check_arguments_errors(args):
 
 
 def set_saved_video(input_video, output_video, size):
-    fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+    fourcc = cv2.VideoWriter_fourcc(*"X264")
     fps = int(input_video.get(cv2.CAP_PROP_FPS))
-    video = cv2.VideoWriter(output_video, fourcc, fps, size)
-    return video
+    print("streaming")
+
+    stream = "appsrc ! decodebin ! videoconvert ! x264enc tune=zerolatency ! rtph264pay ! udpsink host=10.42.0.1 port=5000 sync=false "
+    video = cv2.VideoWriter(output_video,fourcc, fps, size)
+    out_stream = cv2.VideoWriter(stream,fourcc,fps,size)
+    
+    
+    return video, out_stream
 
 
 def video_capture(frame_queue, darknet_image_queue):
@@ -91,7 +97,7 @@ def inference(darknet_image_queue, detections_queue, fps_queue):
 
 def drawing(frame_queue, detections_queue, fps_queue):
     random.seed(3)  # deterministic bbox colors
-    video = set_saved_video(cap, args.out_filename, (width, height))
+    video, stream = set_saved_video(cap, args.out_filename, (width, height))
     while cap.isOpened():
         frame_resized = frame_queue.get()
         detections = detections_queue.get()
@@ -100,17 +106,21 @@ def drawing(frame_queue, detections_queue, fps_queue):
             image = darknet.draw_boxes(detections, frame_resized, class_colors)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if args.out_filename is not None:
+                print("stream starting")
                 video.write(image)
+                stream.write(image)
             if not args.dont_show:
                 cv2.imshow('Inference', image)
             if cv2.waitKey(fps) == 27:
                 break
     cap.release()
     video.release()
+    stream.release()
     cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
+    print("calışıyor")
     frame_queue = Queue()
     darknet_image_queue = Queue(maxsize=1)
     detections_queue = Queue(maxsize=1)
