@@ -7,23 +7,23 @@ import darknet
 import argparse
 from threading import Thread, enumerate
 from queue import Queue
-
+import numpy as np
 
 def parser():
     parser = argparse.ArgumentParser(description="YOLO Object Detection")
-    parser.add_argument("--input", type=str, default=0,
+    parser.add_argument("--input", type=str, default="gora2.mp4",
                         help="video source. If empty, uses webcam 0 stream")
-    parser.add_argument("--out_filename", type=str, default="",
+    parser.add_argument("--out_filename", type=str, default="stream.avi",
                         help="inference video name. Not saved if empty")
-    parser.add_argument("--weights", default="yolov4.weights",
+    parser.add_argument("--weights", default="yolov4-tiny-3l_best.weights",
                         help="yolo weights path")
     parser.add_argument("--dont_show", action='store_true',
                         help="windown inference display. For headless systems")
     parser.add_argument("--ext_output", action='store_true',
                         help="display bbox coordinates of detected objects")
-    parser.add_argument("--config_file", default="./cfg/yolov4.cfg",
+    parser.add_argument("--config_file", default="./cfg/yolov4-tiny-3l.cfg",
                         help="path to config file")
-    parser.add_argument("--data_file", default="./cfg/coco.data",
+    parser.add_argument("--data_file", default="./data/obj.data",
                         help="path to data file")
     parser.add_argument("--thresh", type=float, default=.25,
                         help="remove detections with confidence below this value")
@@ -59,8 +59,8 @@ def set_saved_video(input_video, output_video, size):
     print("streaming")
 
     stream = "appsrc ! decodebin ! videoconvert ! x264enc tune=zerolatency ! rtph264pay ! udpsink host=10.42.0.1 port=5000 sync=false "
-    video = cv2.VideoWriter(output_video,fourcc, fps, size)
-    out_stream = cv2.VideoWriter(stream,fourcc,fps,size)
+    video = cv2.VideoWriter(output_video,fourcc, fps, (640,480))
+    out_stream = cv2.VideoWriter(stream,fourcc,fps,(640,480))
     
     
     return video, out_stream
@@ -104,11 +104,14 @@ def drawing(frame_queue, detections_queue, fps_queue):
         fps = fps_queue.get()
         if frame_resized is not None:
             image = darknet.draw_boxes(detections, frame_resized, class_colors)
+            print(image.shape)
+            cv2.rectangle(image,(152,61),(456,548),(255,0,0),1)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if args.out_filename is not None:
                 print("stream starting")
-                video.write(image)
-                stream.write(image)
+                resized = cv2.resize(image,(640,480),interpolation = cv2.INTER_AREA)
+                video.write(resized)
+                stream.write(resized)
             if not args.dont_show:
                 cv2.imshow('Inference', image)
             if cv2.waitKey(fps) == 27:
