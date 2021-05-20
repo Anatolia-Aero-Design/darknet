@@ -8,10 +8,10 @@ import argparse
 from threading import Thread, enumerate
 from queue import Queue
 import numpy as np
-
+import KalmanFilter as kf
 def parser():
     parser = argparse.ArgumentParser(description="YOLO Object Detection")
-    parser.add_argument("--input", type=str, default="gora2.mp4",
+    parser.add_argument("--input", type=str, default="testvideo.mp4",
                         help="video source. If empty, uses webcam 0 stream")
     parser.add_argument("--out_filename", type=str, default="stream.avi",
                         help="inference video name. Not saved if empty")
@@ -58,7 +58,7 @@ def set_saved_video(input_video, output_video, size):
     fps = int(input_video.get(cv2.CAP_PROP_FPS))
     print("streaming")
 
-    stream = "appsrc ! decodebin ! videoconvert ! x264enc tune=zerolatency ! rtph264pay ! udpsink host=10.42.0.1 port=5000 sync=false "
+    stream = "appsrc ! videoconvert ! videoscale ! video/x-raw !  videoconvert ! videoscale ! x264enc bitrate=90000 ! rtph264pay ! udpsink host=10.42.0.1 port=5000 sync=false"
     video = cv2.VideoWriter(output_video,fourcc, fps, (640,480))
     out_stream = cv2.VideoWriter(stream,fourcc,fps,(640,480))
     
@@ -98,14 +98,27 @@ def inference(darknet_image_queue, detections_queue, fps_queue):
 def drawing(frame_queue, detections_queue, fps_queue):
     random.seed(3)  # deterministic bbox colors
     video, stream = set_saved_video(cap, args.out_filename, (width, height))
+    KF = kf.KalmanFilter(0.1, 1, 1, 1, 0.1, 0.1)
     while cap.isOpened():
         frame_resized = frame_queue.get()
         detections = detections_queue.get()
         fps = fps_queue.get()
         if frame_resized is not None:
             image = darknet.draw_boxes(detections, frame_resized, class_colors)
-            print(image.shape)
             cv2.rectangle(image,(152,61),(456,548),(255,0,0),1)
+            (x,y) = KF.predict()
+
+            if not detections == []:
+                (x1,y1)=KF.update(detections[0][2][:4])
+                x1 = x1.astype(int)
+                x1 = x1.tolist()
+            x = x.astype(int)
+            x = x.tolist()
+    
+            print(x1)
+            print(x)
+            if not x[0][0] == 0:
+                cv2.rectangle(image,(x[0][0]-int(x[0][2]/2),x[0][1]-int(x[0][3]/2)),(x[0][0]+int(x[0][2]/2),x[0][1]+int(x[0][3]/2)) , (0, 0, 255), 2)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if args.out_filename is not None:
                 print("stream starting")
@@ -123,7 +136,7 @@ def drawing(frame_queue, detections_queue, fps_queue):
 
 
 if __name__ == '__main__':
-    print("calışıyor")
+    
     frame_queue = Queue()
     darknet_image_queue = Queue(maxsize=1)
     detections_queue = Queue(maxsize=1)
