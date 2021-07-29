@@ -147,6 +147,7 @@ def drawing(frame_queue, detections_queue, fps_queue):
                 bbox_adjusted = convert2original(frame, bbox)
                 detections_adjusted.append((str(label), confidence, bbox_adjusted))
             image = darknet.draw_boxes(detections_adjusted, frame, class_colors)
+            print(detections_adjusted)
             if not args.dont_show:
                 cv2.imshow('Inference', image)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
